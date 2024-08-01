@@ -1,70 +1,63 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using CustomMath;
 
-public class RoomManager : MonoBehaviourSingleton<Room>
+public class RoomManager : MonoBehaviour
 {
     [SerializeField] Player player;
-
+    [SerializeField] InputManager inputManager;
     public List<Room> rooms;
 
-    public Room nullRoom;
+    private void OnEnable()
+    {
+        inputManager.ResetPointsEvent += OnResetRooms;
+        inputManager.DebugPlayerEvent += OnDebugPlayer;
+    }
+
+    private void OnDisable()
+    {
+        inputManager.ResetPointsEvent -= OnResetRooms;
+        inputManager.DebugPlayerEvent -= OnDebugPlayer;
+    }
 
     private void Start()
     {
-        for (int i = 0; i < rooms.Count; i++) //Setea las ID's de las rooms
-        {
-            rooms[i].roomID = i;
-        }
-
-        nullRoom.roomID = rooms.Count + 1;
-        nullRoom.associatedRooms.Clear(); //Es un room que esta lejos, porque no me dejaba poner "null" como room
-
         for (int i = 0; i < rooms.Count; i++)
         {
-            rooms[i].AddAssociatedRoom(rooms[i]);
-
-            if (i > 0)
-            {
-                rooms[i].AddAssociatedRoom(rooms[i - 1]);
-            }
-
-            if (i < rooms.Count)
-            {
-                rooms[i].AddAssociatedRoom(rooms[i + 1]);
-            }
+            rooms[i].roomID = i;
+            rooms[i].AddAssociatedRoom(i > 0 ? rooms[i - 1] : null);
+            rooms[i].AddAssociatedRoom(i < rooms.Count - 1 ? rooms[i + 1] : null);
         }
     }
-    // Update is called once per frame
-    void Update()
+
+    private void OnResetRooms()
     {
-        if (Input.GetKeyDown(KeyCode.P))
+        foreach (Room room in rooms)
         {
-            Debug.Log("PLAYER ROOM: " + player.inRoom);
-
-            for (int i = 0; i < player.middlePoint.Length; i++)
+            for (int i = 0; i < player.middlePoints.Length; i++)
             {
-                Debug.Log("POINT : " + i + " " + player.pointRoom[i]);
-            }
-        }
+                player.SetPointInRoom(i, null);
 
-        if (Input.GetKeyDown(KeyCode.S))
-        {
-            foreach (Room room in rooms)
-            {
-                for (int i = 0; i < player.middlePoint.Length; i++)
+                if (room.CheckPointInRoom(player.middlePoints[i])) //Setea el room del punto 
                 {
-                    player.SetPointInRoom(i, null);
-
-                    if (room.CheckPointInRoom(player.middlePoint[i])) //Setea el room del punto 
-                    {
-                        player.SetPointInRoom(i, room);
-                    }
+                    player.SetPointInRoom(i, room);
                 }
             }
         }
+    }
 
+    private void OnDebugPlayer()
+    {
+        Debug.Log("PLAYER ROOM: " + player.inRoom);
+
+        for (int i = 0; i < player.middlePoints.Length; i++)
+        {
+            Debug.Log("POINT : " + i + " " + player.pointRoom[i]);
+        }
+    }
+
+
+    private void Update()
+    {
         foreach (Room room in rooms)
         {
             if (!room.seeingRoom)
@@ -85,33 +78,11 @@ public class RoomManager : MonoBehaviourSingleton<Room>
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.C))
-        {
-            for (int i = 0; i < player.middlePoint.Length; i++)
-            {
-                player.SetPointInRoom(i, nullRoom);
-            }
-
-            foreach (Room room in rooms)
-            {
-                for (int i = 0; i < player.middlePoint.Length; i++)
-                {
-                    if (room.CheckPointInRoom(player.middlePoint[i])) //Setea el room del punto 
-                    {
-                        player.SetPointInRoom(i, room);
-                    }
-                }
-            }
-
-            //player.CalculatePointRooms();
-        }
-
-
         foreach (Room room in rooms)
         {
-            for (int i = 0; i < player.middlePoint.Length; i++)
+            for (int i = 0; i < player.middlePoints.Length; i++)
             {
-                if (room.CheckPointInRoom(player.middlePoint[i])) //Setea el room del punto 
+                if (room.CheckPointInRoom(player.middlePoints[i])) //Setea el room del punto 
                 {
                     player.SetPointInRoom(i, room);
                 }
@@ -122,6 +93,6 @@ public class RoomManager : MonoBehaviourSingleton<Room>
     public void AddRoom(Room roomToAdd)
     {
         rooms.Add(roomToAdd);
-        roomToAdd.roomID = rooms.Count;
+        roomToAdd.roomID = rooms.Count - 1;
     }
 }

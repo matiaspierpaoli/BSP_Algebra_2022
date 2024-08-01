@@ -1,40 +1,31 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using CustomMath;
 
 public class Room : MonoBehaviour
 {
     [SerializeField] Material green, red;
-
     [SerializeField] Player player;
 
     public List<SetSelfPlane> wallsMeshes = new List<SetSelfPlane>();
-
-    public List<Planes> planesInRoom = new List<Planes>();
-
+    public List<Plane> planesInRoom = new List<Plane>();
     public List<Room> associatedRooms = new List<Room>();
 
     public bool seeingRoom = true;
-
     public bool playerLooking = false;
-
     public int roomID;
-
     int pointsInsideRoom = 0;
-
-    Vec3 offset; //Es para que si se queda en el borde, lo tome como que esta adentro
 
     private void Start()
     {
-        offset = new Vec3(0.5f, 0.5f, 0.5f);
+        associatedRooms.Add(this); // Associate room with itself
     }
 
     private void Update()
     {
-        seeingRoom = CheckEnabled(); //Chequea si el jugador o alguno de los puntos del frustrum estan en el room
+        seeingRoom = CheckEnabled();
     }
-    public void AddPlane(Planes planeToAdd)
+
+    public void AddPlane(Plane planeToAdd)
     {
         planesInRoom.Add(planeToAdd);
     }
@@ -52,12 +43,11 @@ public class Room : MonoBehaviour
     public bool CheckEnabled()
     {
         pointsInsideRoom = 0;
-
         CheckPointInRoom(player.transform.position);
 
-        for (int i = 0; i < player.middlePoint.Length; i++)
+        foreach (var point in player.middlePoints)
         {
-            CheckPointInRoom(player.middlePoint[i]);
+            CheckPointInRoom(point);
         }
 
         return pointsInsideRoom > 0;
@@ -66,54 +56,46 @@ public class Room : MonoBehaviour
     public bool CheckPlayerInRoom()
     {
         int checkedPlanes = 0;
-
-        foreach (Planes plane in planesInRoom)
+        foreach (var plane in planesInRoom)
         {
             if (plane.GetSide(player.transform.position))
             {
                 checkedPlanes++;
             }
         }
-
         return checkedPlanes == planesInRoom.Count;
     }
 
-    public bool CheckPointInRoom(Vec3 pointToSearch)
+    public bool CheckPointInRoom(Vector3 pointToSearch)
     {
         int checkedPlanes = 0;
-
-        foreach (Planes plane in planesInRoom)
+        foreach (var plane in planesInRoom)
         {
             if (plane.GetSide(pointToSearch))
             {
                 checkedPlanes++;
             }
-
-            if (checkedPlanes == planesInRoom.Count)
-            {
-                pointsInsideRoom++;
-            }
         }
-
+        if (checkedPlanes == planesInRoom.Count)
+        {
+            pointsInsideRoom++;
+        }
         return checkedPlanes == planesInRoom.Count;
     }
 
     public void EnableWalls()
     {
-        foreach (SetSelfPlane mesh in wallsMeshes)
+        foreach (var mesh in wallsMeshes)
         {
-            //mesh.GetComponent<MeshRenderer>().enabled = true;
             mesh.GetComponent<MeshRenderer>().material = green;
         }
     }
 
     public void DisableWalls()
     {
-        foreach (SetSelfPlane mesh in wallsMeshes)
+        foreach (var mesh in wallsMeshes)
         {
-            //mesh.GetComponent<MeshRenderer>().enabled = false;
             mesh.GetComponent<MeshRenderer>().material = red;
         }
     }
 }
-

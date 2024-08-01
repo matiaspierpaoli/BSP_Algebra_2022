@@ -1,197 +1,186 @@
-using CustomMath;
-using System.Collections;
+using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class Player : MonoBehaviour
 {
+    [SerializeField] private InputManager inputManager;
+
     Camera cam;
     const uint maxVertexPerPlane = 4;
     int resolutionGrid = 10;
 
-    int maxDivisions = 6; //Divisiones del BST
-
     Vector3[] frustumCornerFar = new Vector3[maxVertexPerPlane];
     Vector3[] frustumCornerNear = new Vector3[maxVertexPerPlane];
 
-    Vec3 leftMiddlePosFar;
-    Vec3 leftMiddlePosNear;
-    Vec3 rigthMiddlePosFar;
-    Vec3 rigthMiddlePosNear;
+    // Vectores que representan las posiciones medias a la izquierda y a la derecha del frustum en los planos lejano y cercano
+    Vector3 leftMiddlePosFar;
+    Vector3 leftMiddlePosNear;
+    Vector3 rightMiddlePosFar;
+    Vector3 rightMiddlePosNear;
+   
+    //Arrays de vectores que almacenan los puntos intermedios a lo largo del borde izquierdo y derecho del frustum
+    Vector3[] intermediatePointsFar;
+    Vector3[] intermediatePointsNear;
 
-    Vec3[] intermediatePointsFar;
-    Vec3[] intermediatePointsNear;
+    //Un array de Room (habitaciones) para rastrear en qué habitación se encuentra cada punto intermedio
+    public Room[] pointRoom;
 
-    bool firstLoad = false;
+    public Vector3[] previousNearPos;
+    public Vector3[] previousFarPos;
+    public Vector3[] middlePoints;
 
+    //La habitación actual en la que se encuentra el jugador.
+    public Room inRoom;
 
-    //SIMULA UN STRUCT
-    public Room[] pointRoom;   //Es el room del punto negro, lo pongo aca xq no se puede modificar un struct de afuera xd
-    public Vec3[] previousNearPos;  //Guarda la posicion anterior del middle point
-    public Vec3[] previousFarPos; //Guarda la ultima posicion de "adelante"
-    public Vec3[] middlePoint;
-
-    public struct BSTCalc
+    private void OnEnable()
     {
-        public Vec3 aux1;
-        public Vec3 aux2;
+        inputManager.InitializePointsEvent += OnInitializePoints;
+        inputManager.CalculatePointRoomsEvent += OnCalculatePointRooms;
     }
 
-    public Room inRoom; //Room actual del player
+    private void OnDisable()
+    {
+        inputManager.InitializePointsEvent -= OnInitializePoints;
+        inputManager.CalculatePointRoomsEvent -= OnCalculatePointRooms;
+    }
 
     private void Start()
     {
         cam = Camera.main;
 
-        intermediatePointsFar = new Vec3[resolutionGrid];
-        intermediatePointsNear = new Vec3[resolutionGrid];
+        intermediatePointsFar = new Vector3[resolutionGrid];
+        intermediatePointsNear = new Vector3[resolutionGrid];
 
-        previousNearPos = new Vec3[resolutionGrid];  //Guarda la posicion anterior del middle point
-        previousFarPos = new Vec3[resolutionGrid];
+        previousNearPos = new Vector3[resolutionGrid];
+        previousFarPos = new Vector3[resolutionGrid];
 
         pointRoom = new Room[resolutionGrid];
-        middlePoint = new Vec3[resolutionGrid];
+        middlePoints = new Vector3[resolutionGrid];
 
+        CalculateEndsOfFrustum();
+        OnInitializePoints();
     }
 
     private void Update()
     {
         CalculateEndsOfFrustum();
-        BinarySearch();
     }
 
-    public void SetInRoom(Room roomIn) //Setea en que habitacion está
+    public void SetInRoom(Room roomIn)
     {
         inRoom = roomIn;
     }
 
-    private void CalculateEndsOfFrustum() //Se calcula y se dibujan los planos del frustrum
+    /// <summary>
+    /// Calcula las esquinas del frustum tanto en el plano cercano como en el lejano, luego las transforma a coordenadas de mundo. 
+    /// Calcula los puntos medios a la izquierda y derecha del frustum, y luego genera los puntos intermedios entre esos puntos medios.
+    /// </summary>
+    private void CalculateEndsOfFrustum()
     {
-        cam.CalculateFrustumCorners(new Rect(0, 0, 1, 1), cam.farClipPlane, Camera.MonoOrStereoscopicEye.Mono, frustumCornerFar);  //Obtengo el Frustrum lejano
-        cam.CalculateFrustumCorners(new Rect(0, 0, 1, 1), cam.nearClipPlane, Camera.MonoOrStereoscopicEye.Mono, frustumCornerNear); //Obtengo el Frustrum cercano
+        cam.CalculateFrustumCorners(new Rect(0, 0, 1, 1), cam.farClipPlane, Camera.MonoOrStereoscopicEye.Mono, frustumCornerFar);
+        cam.CalculateFrustumCorners(new Rect(0, 0, 1, 1), cam.nearClipPlane, Camera.MonoOrStereoscopicEye.Mono, frustumCornerNear);
 
         for (int i = 0; i < maxVertexPerPlane; i++)
         {
-            frustumCornerFar[i] = FromLocalToWorld(frustumCornerFar[i], cam.transform);
-            frustumCornerNear[i] = FromLocalToWorld(frustumCornerNear[i], cam.transform);
-
-            //ORDEN DE LOS VERTICES: 0 abajo izq, 1 arriba izq, 2 arriba der, 3 abajo der
+            frustumCornerFar[i] = cam.transform.TransformPoint(frustumCornerFar[i]);
+            frustumCornerNear[i] = cam.transform.TransformPoint(frustumCornerNear[i]);
         }
 
         leftMiddlePosFar = CalculateTheMiddle(frustumCornerFar[1], frustumCornerFar[0]);
         leftMiddlePosNear = CalculateTheMiddle(frustumCornerNear[1], frustumCornerNear[0]);
-        rigthMiddlePosFar = CalculateTheMiddle(frustumCornerFar[2], frustumCornerFar[3]);
-        rigthMiddlePosNear = CalculateTheMiddle(frustumCornerNear[2], frustumCornerNear[3]);
+        rightMiddlePosFar = CalculateTheMiddle(frustumCornerFar[2], frustumCornerFar[3]);
+        rightMiddlePosNear = CalculateTheMiddle(frustumCornerNear[2], frustumCornerNear[3]);
 
-        intermediatePointsFar = CalculateGrid(leftMiddlePosFar, rigthMiddlePosFar);
-        intermediatePointsNear = CalculateGrid(leftMiddlePosNear, rigthMiddlePosNear);
-
-        //Setea los puntos en la mitad
-
-        if (!firstLoad)
-        {
-            InitializePoints();
-            firstLoad = true;
-        }
+        intermediatePointsFar = CalculateGrid(leftMiddlePosFar, rightMiddlePosFar);
+        intermediatePointsNear = CalculateGrid(leftMiddlePosNear, rightMiddlePosNear);
     }
 
-    private Vec3[] CalculateGrid(Vec3 leftMiddlePos, Vec3 rigthMiddlePos)
+    /// <summary>
+    /// Genera una cuadrícula de puntos interpolados entre dos posiciones dadas.
+    /// </summary>
+    /// <param name="leftMiddlePos">La posición en el borde izquierdo.</param>
+    /// <param name="rightMiddlePos">La posición en el borde derecho.</param>
+    /// <returns>Un array de <see cref="Vector3"/> que contiene los puntos interpolados entre las dos posiciones.</returns>
+    private Vector3[] CalculateGrid(Vector3 leftMiddlePos, Vector3 rightMiddlePos)
     {
-        List<Vec3> gridPoints = new List<Vec3>();
+        List<Vector3> gridPoints = new List<Vector3>();
 
         for (int i = 0; i < resolutionGrid; i++)
         {
-            gridPoints.Add(Vector3.Lerp(leftMiddlePos, rigthMiddlePos, (float)i / resolutionGrid)); //Creo otra interpolacion lineal desde los puntos laterales del frustrum guardando en una lista los puntos intermedios de la grilla
+            gridPoints.Add(Vector3.Lerp(leftMiddlePos, rightMiddlePos, (float)i / resolutionGrid));
         }
 
-        return gridPoints.ToArray(); //transformo la lista a Array
+        return gridPoints.ToArray();
     }
 
-    Vec3 CalculateTheMiddle(Vec3 lhs, Vec3 rhs)
+    /// <summary>
+    /// Calcula el punto medio entre dos vectores
+    /// </summary>
+    Vector3 CalculateTheMiddle(Vector3 lhs, Vector3 rhs)
     {
-        return new Vec3((lhs.x + rhs.x) / 2, (lhs.y + rhs.y) / 2, (lhs.z + rhs.z) / 2);
+        return (lhs + rhs) / 2;
     }
 
-    private Vector3 FromLocalToWorld(Vector3 point, Transform transformRef) //Recibe un punto y tansform de un objeto
-    {
-        Vector3 result = Vector3.zero;
-
-        result = new Vector3(point.x * transformRef.localScale.x, point.y * transformRef.localScale.y, point.z * transformRef.localScale.z); //Multiplica el punto por la escala
-
-        result = transformRef.localRotation * result; //Luego multiplica el resutado por la rotacion
-
-        return result + transformRef.position; //El resutado le sumamos la posicion del objeto y retornamos las coordenadas en globales
-    }
-
-    public void InitializePoints()
-    {
-        for (int i = 0; i < resolutionGrid; i++)
-        {
-            middlePoint[i] = CalculateTheMiddle(intermediatePointsNear[i], intermediatePointsFar[i]);
-
-            previousNearPos[i] = Vec3.Zero;  //Guarda la posicion anterior del middle point
-            previousFarPos[i] = Vec3.Zero;
-        }
-    }
-
-    public void SetPointInRoom(int point, Room roomToAdd) //Setea la habitacion en la que esta el punto
+    /// <summary>
+    /// Asigna una habitación a un punto específico
+    /// </summary>
+    public void SetPointInRoom(int point, Room roomToAdd)
     {
         pointRoom[point] = roomToAdd;
     }
 
-    void BinarySearch()
+    /// <summary>
+    /// Inicializa las posiciones de los puntos intermedios (middlePoint) 
+    /// y establece las posiciones previas (previousNearPos, previousFarPos) en cero
+    /// </summary>
+    public void OnInitializePoints()
     {
-        //InitializePoints();
-
-        if (Input.GetKeyDown(KeyCode.S))
+        for (int i = 0; i < resolutionGrid; i++)
         {
-            InitializePoints();
-        }
+            middlePoints[i] = CalculateTheMiddle(intermediatePointsNear[i], intermediatePointsFar[i]);
 
-        if (Input.GetKeyDown(KeyCode.C))
-        {
-            CalculatePointRooms();
+            previousNearPos[i] = Vector3.zero;
+            previousFarPos[i] = Vector3.zero;
         }
     }
 
-    public void CalculatePointRooms()
+    /// <summary>
+    /// Verifica si un punto está en una habitación asociada con la habitación actual y
+    /// ajusta la posición del punto medio basado en su posición previa o en los puntos del frustum o hacia el plano cercano
+    /// </summary>
+    public void OnCalculatePointRooms()
     {
-        //Si el middle esta en una habitacion conexa, tiene que ir para adelante
-        //Sino, tiene que ir para atras
-
-        for (int i = 0; i < resolutionGrid; i++)  //ESTA ENTRANDO DOS VECES ACA Y NO DEBERIA
+        for (int i = 0; i < resolutionGrid; i++)
         {
-            //Tiene que preguntar si es conexo a alguna habitacion visible
-            if (inRoom.associatedRooms.Contains(pointRoom[i])) //Pregunta si es conexa
+            if (inRoom.associatedRooms.Contains(pointRoom[i]))
             {
-                previousNearPos[i] = middlePoint[i]; //Si vas para adelante, guardas tu posicion actual, que es la de atras
+                previousNearPos[i] = middlePoints[i];
 
-                if (previousFarPos[i] == Vec3.Zero) //Si es cero signfica que todavia no esta seteado, es la primer iteracion
+                if (previousFarPos[i] == Vector3.zero)
                 {
-                    middlePoint[i] = CalculateTheMiddle(middlePoint[i], intermediatePointsFar[i]);
+                    middlePoints[i] = CalculateTheMiddle(middlePoints[i], intermediatePointsFar[i]);
                 }
                 else
                 {
-                    middlePoint[i] = CalculateTheMiddle(middlePoint[i], previousFarPos[i]);
+                    middlePoints[i] = CalculateTheMiddle(middlePoints[i], previousFarPos[i]);
                 }
-
             }
             else
             {
-                previousFarPos[i] = middlePoint[i]; //Si vas para atras, guardas tu posicion actual, que es la de adelante
+                previousFarPos[i] = middlePoints[i];
 
-                if (previousNearPos[i] == Vec3.Zero)
+                if (previousNearPos[i] == Vector3.zero)
                 {
-                    middlePoint[i] = CalculateTheMiddle(middlePoint[i], intermediatePointsNear[i]);
+                    middlePoints[i] = CalculateTheMiddle(middlePoints[i], intermediatePointsNear[i]);
                 }
                 else
                 {
-                    middlePoint[i] = CalculateTheMiddle(middlePoint[i], previousNearPos[i]);
+                    middlePoints[i] = CalculateTheMiddle(middlePoints[i], previousNearPos[i]);
                 }
-
             }
-
-            Debug.Log(i);
         }
     }
 
@@ -226,7 +215,7 @@ public class Player : MonoBehaviour
 
         for (int i = 0; i < resolutionGrid; i++)
         {
-            Gizmos.DrawSphere(middlePoint[i], .2f);
+            Gizmos.DrawSphere(middlePoints[i], .2f);
         }
 
         Gizmos.color = Color.white;

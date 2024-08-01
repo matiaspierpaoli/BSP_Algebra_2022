@@ -1,0 +1,90 @@
+{
+    "name": "New Input Actions",
+    "maps": [
+        {
+            "name": "Player",
+            "id": "1fe94047-5235-484f-9796-89e5b3dee964",
+            "actions": [
+                {
+                    "name": "InitializePoints",
+                    "type": "Button",
+                    "id": "71580c49-e5e7-4c8d-a16f-586447c9c95c",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": ""
+                },
+                {
+                    "name": "CalculatePointRooms",
+                    "type": "Button",
+                    "id": "affb5a35-33bd-4b2a-8e4b-76c7480786aa",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": ""
+                },
+                {
+                    "name": "OnResetRooms",
+                    "type": "Button",
+                    "id": "d4a1012a-a0b5-4b6c-ba51-00e915cbfcfe",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": ""
+                },
+                {
+                    "name": "DebugPlayer",
+                    "type": "Button",
+                    "id": "85bf6916-8d39-4133-9486-030010f22aaa",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": ""
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "a65bbf2a-1147-466d-820b-54409ebf41ca",
+                    "path": "<Keyboard>/w",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "InitializePoints",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "028ca17b-2991-4d67-8d3f-6e1d7732d03a",
+                    "path": "<Keyboard>/s",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "CalculatePointRooms",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "5bf3e51b-5ec0-4dfa-b1d0-911f41b80fb4",
+                    "path": "<Keyboard>/r",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "OnResetRooms",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "6ed4d0c0-3ced-40ce-9fad-c8e2250b7fe7",
+                    "path": "<Keyboard>/p",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "DebugPlayer",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}
